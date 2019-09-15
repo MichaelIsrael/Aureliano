@@ -1,5 +1,5 @@
 # Aureliano
-Aureliano was created as a generic framework to automate some development tasks, with a main thought in mind; [\*\*easy](#footnotes) extensibility.
+Aureliano was created as a generic framework to automate some development tasks, with a main thought in mind; [\*easy](#footnotes) extensibility.
 
 ## Main Features
 * New commands can be quickly added by creating a new drived class of `BaseCommand`. See [How to write new commands](#how-to-write-new-commands) for more info.
