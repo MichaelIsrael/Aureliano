@@ -2,14 +2,14 @@
 Aureliano was created as a generic framework to automate some development tasks, with a main thought in mind; easy extensibility.
 
 ## Main Features
-* New commands can be created quickly by creating a new drived class of `BaseCommand`. See [How to write new commands](#how-to-write-new-commands) for more info.
+* New commands can be quickly added by creating a new drived class of `BaseCommand`. See [How to write new commands](#how-to-write-new-commands) for more info.
 * Commands' file can be used to run the same series of commands several times.
 * Multiline commands to invoke the same command with different parameters:
-  * Can be very useful one the command would unnecessarily execute the same initialization code every time you invoke. (Like connecting to a server or initalizing the environment)
+  * Can be very useful when the command would unnecessarily execute the same initialization code every time you invoke it. (Like connecting to a server or initalizing an environment)
   * Single and multiline comments are also supported.
 
 ## How to invoke
-The best starting point would be `$Aureliano -h`
+The best starting point would be `$Aureliano -h`.
 Aureliano can be invoked with one command at a time (-r), with a commands' file (-f) or in an interactive mode.
 
 A test command is also present, well, obviously for testing. This is the one used in the following examples.
@@ -29,8 +29,6 @@ But can also include multiline commands (if supported by the command).
 #### Mutliline commands
 Multiline commands can be invoked by typing the command and its main parameters plus a `{` following by on or more lines, each containing a set of multiline parameters. The scope ends with `}` in a new line.
 
-_Examples can be found in [Test](Test)_
-
 #### Comments
 There are two types of comments; single and multi-line.
 Both can be used also inside the scope of multiline command.
@@ -40,7 +38,31 @@ Single line comments start with a '#'.
 
 ##### Multiline comments
 Mutliline comments can be made as following.
+```
+#<
+	First comment.
+	Second comment.
+#>
+```
 
+
+
+Example:
+```
+test MyName{
+	#First action to execute
+	ok
+	#Second action to execute
+	error_message
+#<
+	A few comments
+	ok (A valid but commented action)
+#>
+}
+
+```
+
+_More examples can be found in [Test](Test)_
 
 ### Interactive mode
 Invoking `$Aureliano` starts it in interactive mode
@@ -48,9 +70,9 @@ Invoking `$Aureliano` starts it in interactive mode
 
 ## How to write new commands
 1. Create a child class of BaseCommand, whose name must start with "Cmd" (silly I know but there is always a \*\*reason).
-2. Write what it does in its member \_BriefHelpStr.
+2. Write what it does in its member variable \_BriefHelpStr.
 3. Write the regular expressions of its parameters. (See [How parameters definition works](#how-parameters-definition-works))
-4. Implement its run-method.
+4. Implement its run(self)-method.
 
 ### How parameters definition works
 This is where it gets tricky.
@@ -73,6 +95,7 @@ when invoked, BaseCommand will do the following:
 3. A internal member dictionary `self.Args` is created and all parameters are stored in it.
 4. The run() function is executed.
 
+For a better understanding, see the implementation of the [test command](Aureliano/Commands/CmdTest.py)
 
 
 ## Status 
