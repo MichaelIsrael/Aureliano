@@ -2,7 +2,7 @@
 Aureliano was created as a generic framework to automate some development tasks, with a main thought in mind; easy extensibility.
 
 ## Main Features
-* New commands can be created quickly by creating a new drived class of `BaseCommand`. See [How to write new commands](#How to write new commands) for more info.
+* New commands can be created quickly by creating a new drived class of `BaseCommand`. See [How to write new commands](#how-to-write-new-commands) for more info.
 * Commands' file can be used to run the same series of commands several times.
 * Multiline commands to invoke the same command with different parameters:
   * Can be very useful one the command would unnecessarily execute the same initialization code every time you invoke. (Like connecting to a server or initalizing the environment)
@@ -49,10 +49,10 @@ Invoking `$Aureliano` starts it in interactive mode
 ## How to write new commands
 1. Create a child class of BaseCommand, whose name must start with "Cmd" (silly I know but there is always a \*\*reason).
 2. Write what it does in its member \_BriefHelpStr.
-3. Write the regular expressions of its parameters. (See [how parameters definition works](#how parameters definition works))
+3. Write the regular expressions of its parameters. (See [How parameters definition works](#how-parameters-definition-works))
 4. Implement its run-method.
 
-### how parameters definition works
+### How parameters definition works
 This is where it gets tricky.
 There are two member variables responsible for the whole story:
 ```
