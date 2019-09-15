@@ -1,0 +1,12 @@
+ 
+test MyName{
+	#First action to execute
+	ok
+	#Second action to execute
+	error_message
+#<
+	A few comments
+	ok (A valid but commented action)
+#>
+}
+
