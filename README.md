@@ -14,7 +14,7 @@ The best starting point would be `$Aureliano -h`.
 Aureliano can be invoked with one command at a time (-r), with a commands' file (-f) or in an interactive mode.
 
 A test command is also present, well, obviously for testing. This is the one used in the following examples.  
-It is deactivated by default. To activate it, you just need to remove the `'#'` from `#from Commands.CmdTest import CmdTest` in [Commands/__init__.py](Commands/__init__.py)
+It is deactivated by default. To activate it, you just need to remove the `'#'` from `#from Commands.CmdTest import CmdTest` in [Commands/__init__.py](Aureliano/Commands/__init__.py)
 
 ### One command
 Example:
@@ -72,7 +72,7 @@ Invoking `$Aureliano` starts it in interactive mode
 2. Write what it does in its member variable \_BriefHelpStr.
 3. Write the regular expressions of its parameters. (See [How parameters definition works](#how-parameters-definition-works))
 4. Implement its run(self) method.
-5. Import it in [Commands/__init__.py](Commands/__init__.py)
+5. Import it in [Commands/__init__.py](Aureliano/Commands/__init__.py)
 
 ### How parameters definition works
 This is where it gets tricky.  
