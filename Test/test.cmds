@@ -1,5 +1,7 @@
  
-test MyName{
+test MySingle ok
+
+test MyMulti{
 	#First action to execute
 	ok
 	#Second action to execute
