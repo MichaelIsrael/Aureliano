@@ -24,14 +24,16 @@ class FailedToConnectError(AurelianoBaseError):
 _RE_Path = "(?i)(?:.+\:)?[\sa-z0-9\\\/\_\.\-]+" #TODO: Better path regex.
 _RE_IP_UNIT = r"([1-9]?[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
 _RE_IP = r"\b{0}\.{0}\.{0}\.{0}\b".format(_RE_IP_UNIT)
+_RE_USER_PASS = "[^:]+" #TODO: Check official rules for usernames.
 
 class CmdFtp(CommandBase):
     _BriefHelpStr = "Upload, download and delete files using FTP."
-    __RE_USER_PASS = "[^:]+" #TODO: Check official rules for usernames.
-    __RE_System = "(?P<Ip>{IP_RE})(?:\:(?P<Username>{USER_RE})\:(?P<Password>{PASS_RE}))?".format(IP_RE=_RE_IP, USER_RE=__RE_USER_PASS, PASS_RE=__RE_USER_PASS)
+    __RE_System = "(?P<Ip>{IP_RE})(?:\:(?P<Username>{USER_RE})(?:\:(?P<Password>{PASS_RE}))?)?".format(IP_RE=_RE_IP, USER_RE=_RE_USER_PASS, PASS_RE=_RE_USER_PASS)
 
-    SingleParametersRegex = OrderedDict([("System","{Ip}(?:\:{User}\:{Pass})?".format(Ip=_RE_IP, User=__RE_USER_PASS, Pass=__RE_USER_PASS))])
-    MultiParametersRegex = OrderedDict([("Action",_RE_Path)]) #TODO
+    def registerParameters(self):
+        #TODO: Divide this into three parameters where two are optional ;)
+        self.addMainParameter("System","{Ip}(?:\:{User}\:{Pass})?".format(Ip=_RE_IP, User=_RE_USER_PASS, Pass=_RE_USER_PASS))
+        self.addExtendedParameter("Action",_RE_Path) #TODO
 
     def __ftpPut(self, localPutFile, destinationPutFile):
         print("FTP --> Puting "+localPutFile+" to "+destinationPutFile)
@@ -119,19 +121,11 @@ class CmdFtp(CommandBase):
         except ftplib.error_perm:
             raise FtpAnonymousOnlyError(self._Aureliano, "TODO") from None
 
-        try:
-            for cmd in self.Args["Multi"]:
-                try:
-                    ActionParams = re.match(self.__RE_Cmd, cmd["Action"]).groupdict()
-                except AttributeError:
-                    raise BadSyntaxError(self._Aureliano, cmd["Action"]) from None
-                ActionParams = {key:val for (key, val) in ActionParams.items() if val is not None}
-                self.__ftpExec(**ActionParams)
-        except KeyError:
+        for cmd in self.Args["Multi"]:
             try:
-                ActionParams = re.match(self.__RE_Cmd, self.Args["Action"]).groupdict()
+                ActionParams = re.match(self.__RE_Cmd, cmd["Action"]).groupdict()
             except AttributeError:
-                raise BadSyntaxError(self._Aureliano, "TODO") from None
+                raise BadSyntaxError(self._Aureliano, cmd["Action"]) from None
             ActionParams = {key:val for (key, val) in ActionParams.items() if val is not None}
             self.__ftpExec(**ActionParams)
 

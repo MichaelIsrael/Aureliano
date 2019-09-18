@@ -33,69 +33,110 @@ class Helper:
     def __repr__(self):
         return "{name: <20}{help}".format(**self._info)
 
+class ParametersBuilder(object):
+    def __init__(self):
+        pass
+
+
+    def addMain(self, Name, Regex, Optional=False):
+        if(Optional):
+            raise NotImplementedError
+
+        try:
+            self.__MainRegex = self.__MainRegex + r'\s+' + "(?P<{}>".format(Name) + Regex + ")"
+        except AttributeError:
+            self.__MainRegex = "(?P<{}>".format(Name) + Regex + ")"
+
+
+    def addExtended(self, Name, Regex, Optional=False):
+        if(Optional):
+            raise NotImplementedError
+
+        try:
+            self.__MultiRegex = self.__MultiRegex + r'\s+' + "(?P<{}>".format(Name) + Regex + ")"
+            self.__GroupedMultiRegex = self.__GroupedMultiRegex + r'\s+' + Regex
+        except AttributeError:
+            self.__MultiRegex = "(?P<{}>".format(Name) + Regex + ")"
+            self.__GroupedMultiRegex = "(?P<Multi>" + Regex
+
+
+    def getMainRegex(self):
+        return self.__MainRegex
+
+
+    def getExtendedRegex(self):
+        try:
+            return self.__GroupedMultiRegex, self.__MultiRegex
+        except AttributeError:
+            return None, None
+
+
+    def finalize(self):
+        try:
+            self.__GroupedMultiRegex = self.__GroupedMultiRegex + ")"
+        except AttributeError:
+            pass
+
 
 ###########################
 # Base class for commands #
 ###########################
 class CommandBase(object):
     _BriefHelpStr = "Please implement!"
-    SingleParametersRegex = OrderedDict()
-    MultiParametersRegex = None
-    __RE_WhiteSpace = r'\s+'
-    __RE_PossibleWhiteSpace = r'\s*'
+
     def __init__(self, arguments, Aureliano):
         assert self.__class__.__name__[:3] == "Cmd", "Invalid inheritance! Class name should start with Cmd"
         self._Aureliano = Aureliano
         self.name = self.__class__.__name__[3:]
+        self.__createRegexes()
         self.__parseArguments(arguments)
-        #print("{}:{} ({})".format(self.name, repr(arguments), self.Args))
 
-    def __buildArgsRegex(self):
-        SingleRegex = None
-        for ArgName, ArgRegex in self.SingleParametersRegex.items():
-            try:
-                SingleRegex = SingleRegex + self.__RE_WhiteSpace + "(?P<{}>".format(ArgName) + ArgRegex + ")"
-            except TypeError:
-                SingleRegex = "(?P<{}>".format(ArgName) + ArgRegex + ")"
-        MultiRegex = None
-        try:
-            MultiParamREIter = self.MultiParametersRegex.items()
-        except AttributeError:
-            pass
-        else:
-            for ArgName, ArgRegex in MultiParamREIter:
-                try:
-                    MultiRegex = MultiRegex + self.__RE_WhiteSpace + "(?P<{}>".format(ArgName) + ArgRegex + ")"
-                except TypeError:
-                    MultiRegex = "(?P<{}>".format(ArgName) + ArgRegex + ")"
-        finally:
-            return SingleRegex, MultiRegex
+
+    def __createRegexes(self):
+        self.Parameters = ParametersBuilder()
+
+        self.addMainParameter = self.Parameters.addMain
+        self.addExtendedParameter = self.Parameters.addExtended
+
+        self.registerParameters()
+
+        self.Parameters.finalize()
+
+
+    def registerParameters(self):
+        raise NotImplementedError("Command '{}' was defined but not properly implemented!".format(self.name))
+
 
     def __parseArguments(self, arguments):
+        ## Automatically build Regex
+        #SingleRegex, GroupedMultiRegex, MultiRegex = self.__buildArgsRegex()
+        SingleRegex = self.Parameters.getMainRegex()
+        GroupedMultiRegex, MultiRegex = self.Parameters.getExtendedRegex()
+
         ## One-liner
         if type(arguments) is str:
-            ## Automatically build Regex
-            SingleRegex, MultiRegex = self.__buildArgsRegex()
-
             ## Build full Regex
             try:
-                CmdRegex = self.__RE_PossibleWhiteSpace + SingleRegex + self.__RE_WhiteSpace + MultiRegex + self.__RE_PossibleWhiteSpace
+                CmdRegex = r'\s*' + SingleRegex + r'\s+' + GroupedMultiRegex + r'\s*'
             except TypeError: #The command has only SingleRegex
-                CmdRegex = self.__RE_PossibleWhiteSpace + SingleRegex + self.__RE_PossibleWhiteSpace
+                CmdRegex = r'\s*' + SingleRegex + r'\s*'
 
             ## Check syntax
             try:
                 self.Args = re.match(CmdRegex, arguments).groupdict()
             except AttributeError:
                 raise BadCommandSyntaxError(self._Aureliano, self.name, arguments) from None
-        ## Multi-line command.
-        else:
-            ## Check if command is multi-lineable
-            if self.MultiParametersRegex is None:
-                raise BadSyntaxError(self._Aureliano, "Not a multi-lineable command!") from None
 
-            ## Automatically build Regex
-            SingleRegex, MultiRegex = self.__buildArgsRegex()
+            try:
+                MultiParameters = self.Args.pop("Multi")
+                MultiArgs = re.match(MultiRegex, MultiParameters).groupdict()
+                self.Args["Multi"] = [MultiArgs]
+            except AttributeError:
+                raise BadCommandSyntaxError(self._Aureliano, self.name, arguments) from None
+        else: ## Multi-line command.
+            ## Check if command is multi-lineable
+            if MultiRegex is None:
+                raise BadSyntaxError(self._Aureliano, "Not a multi-lineable command!") from None
 
             ## Parse main command
             try:
