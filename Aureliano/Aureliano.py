@@ -3,6 +3,7 @@ from Commands.Exceptions import BadCommandSyntaxError, BadSyntaxError
 from ExceptionBase import AurelianoBaseError
 from functools import wraps
 from time import sleep
+from Commands.CommandBase import Helper
 from Commands import *
 import argparse
 import random
@@ -42,13 +43,12 @@ class Aureliano:
             "continue" : False,
             "polite" : False}
 
-        InternalCommands = {name : self.__class__.__dict__[name] for name in self.__class__.__dict__.keys() if "_Aureliano__Cmd" in name}
-        for _, cmdMethod in InternalCommands.items():
+        self._internalCommands = {name : self.__class__.__dict__[name] for name in self.__class__.__dict__.keys() if "_Aureliano__Cmd" in name}
+        for _, cmdMethod in self._internalCommands.items():
             for CmdName in cmdMethod._CmdNames:
                 self.__cloneCommand(CmdName, cmdMethod)
 
-        #TODO: Generate help.
-            
+
     def __cloneCommand(self, newFunc, origFunc):
         cmdFuncName = "_Cmd"+newFunc.title()
         setattr(self, cmdFuncName, types.FunctionType(origFunc.__code__, origFunc.__globals__, newFunc, origFunc.__defaults__, origFunc.__closure__))
@@ -75,10 +75,12 @@ class Aureliano:
 
         print(self.getHelpStr())
 
+
     def getHelpStr(self):
-        #TODO: Print internal commands' help
+        # Print internal commands' help
         helpStr = "  Internal commands:"
-        helpStr += "\n" + "    TODO"
+        for _, intCmd in self._internalCommands.items():
+            helpStr += "\n" + re.sub("^", "    ", str(intCmd._CmdHelp), flags=re.MULTILINE)
 
         helpStr += "\n"
 
@@ -115,6 +117,7 @@ class Aureliano:
             raise exception from None
 
     def interact(self, Filename=None):
+        #TODO: Replace the following with an iterator self for both variants
         self.__readFrom(Filename)
         try:
             for command in self.__readCommandsFile():
@@ -243,7 +246,7 @@ class Aureliano:
     ###################################
     def _DefineCommand(helpStr, *names):
         def command(_Cmd):
-            setattr(_Cmd, "_CmdHelp", helpStr)
+            setattr(_Cmd, "_CmdHelp", Helper(names, helpStr))
             setattr(_Cmd, "_CmdNames", names)
             @wraps(_Cmd)
             def commandWrapper(self, *args):
@@ -258,14 +261,14 @@ class Aureliano:
     def __Cmd1(self):
         self.__interacting = False
 
-    @_DefineCommand("Sleep TIME", "Wait", "Sleep", "Delay")
+    @_DefineCommand(("Sleep TIME seconds.", "TIME"), "Wait", "Sleep", "Delay")
     def __Cmd2(self, time):
         try:
             sleep(float(time))
         except ValueError:
             raise BadCommandSyntaxError(self, self.__name__, args) from None
 
-    @_DefineCommand("Set a certain mode", "Be", "Become")
+    @_DefineCommand(("Set a certain mode.", "MODE"), "Be", "Become")
     def __Cmd3(self, state):
         States = {("quiet","silent"):       ("verbose", False),
                   ("verbose", "talkative"): ("verbose", True),
@@ -279,11 +282,12 @@ class Aureliano:
                 self.__discipline[States[knownState][0]] = States[knownState][1]
                 break
         else:
-            #raise BadSyntaxError(self, "State '{}' is unknown".format(state))
-            raise BadCommandSyntaxError(self, [self.__name__, state]) from None#TODO
+            raise BadSyntaxError(self, repr(state)+" is not a known state!") from None
 
-    @_DefineCommand("Print help.", "Help")
-    def __Cmd4(self):
+    @_DefineCommand(("Print help.", "[CMD]"), "Help")
+    def __Cmd4(self, Command=None):
+        if Command:
+            raise NotImplementedError("Command specific help.")
         self.help()
             
 
