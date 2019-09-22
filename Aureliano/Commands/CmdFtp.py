@@ -21,40 +21,37 @@ class FailedToConnectError(AurelianoBaseError):
 ###################
 # General Regexes #
 ###################
-_RE_Path = "(?i)(?:.+\:)?[\sa-z0-9\\\/\_\.\-]+" #TODO: Better path regex.
-_RE_IP_UNIT = r"([1-9]?[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
-_RE_IP = r"\b{0}\.{0}\.{0}\.{0}\b".format(_RE_IP_UNIT)
-_RE_USER_PASS = "[^:]+" #TODO: Check official rules for usernames.
+_RE_PATH = "(?i)(?:.+\:)?[\sa-z0-9\\\/\_\.\-]+" #TODO: Better path regex.
+_RE_USER_PASS = "\S+" #TODO: Check official rules for usernames.
+_RE_IP_UNIT = r"\b([1-9]?[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\b"
+_RE_IP = r"{0}\.{0}\.{0}\.{0}".format(_RE_IP_UNIT)
+#_RE_URL = "" #TODO
+#_RE_ADDRESS = r'({}|{})'.format(_RE_IP, _RE_URL)
+_RE_ADDRESS = _RE_IP
 
 class CmdFtp(CommandBase):
     _BriefHelpStr = "Upload, download and delete files using FTP."
-    __RE_System = "(?P<Ip>{IP_RE})(?:\:(?P<Username>{USER_RE})(?:\:(?P<Password>{PASS_RE}))?)?".format(IP_RE=_RE_IP, USER_RE=_RE_USER_PASS, PASS_RE=_RE_USER_PASS)
 
-    def registerParameters(self):
-        #TODO: Divide this into three parameters where two are optional ;)
-        self.addMainParameter("System","{Ip}(?:\:{User}\:{Pass})?".format(Ip=_RE_IP, User=_RE_USER_PASS, Pass=_RE_USER_PASS))
-        self.addExtendedParameter("Action",_RE_Path) #TODO
-
-    def __ftpPut(self, localPutFile, destinationPutFile):
-        print("FTP --> Puting "+localPutFile+" to "+destinationPutFile)
-        with open(localPutFile,'rb') as binaryFile:
+    def __ftpPut(self, LocalFile, DestinationFile):
+        print("FTP --> Puting "+LocalFile+" to "+DestinationFile)
+        with open(LocalFile,'rb') as binaryFile:
             try:
-                self.__FtpSession.storbinary('STOR '+destinationPutFile, binaryFile)
+                self.__FtpSession.storbinary('STOR '+DestinationFile, binaryFile)
             except ftplib.error_perm as e:
                 if int(e.args[0][:3]) != 553:
                     raise
-                self.__createDir(os.path.dirname(destinationPutFile))
-                self.__FtpSession.storbinary('STOR '+destinationPutFile, binaryFile)
+                self.__createDir(os.path.dirname(DestinationFile))
+                self.__FtpSession.storbinary('STOR '+DestinationFile, binaryFile)
 
-    def __ftpGet(self, remoteGetFile, destinationGetFile):
-        print("FTP --> Geting "+remoteGetFile+" to "+destinationGetFile)
-        with open(destinationGetFile, 'wb') as binaryFile:
-            self.__FtpSession.retrbinary('RETR '+remoteGetFile, binaryFile.write)
+    def __ftpGet(self, RemoteFile, DestinationFile):
+        print("FTP --> Geting "+RemoteFile+" to "+DestinationFile)
+        with open(DestinationFile, 'wb') as binaryFile:
+            self.__FtpSession.retrbinary('RETR '+RemoteFile, binaryFile.write)
 
-    def __ftpDel(self, remoteDelFile):
-        print("FTP --> deleting "+remoteDelFile)
+    def __ftpDel(self, RemoteFile):
+        print("FTP --> deleting "+RemoteFile)
         try:
-            self.__FtpSession.delete(remoteDelFile)
+            self.__FtpSession.delete(RemoteFile)
         except ftplib.error_perm as e:
             print(e)
             #TODO: Make sure it's a file not found and handle it.
@@ -63,9 +60,9 @@ class CmdFtp(CommandBase):
             print("HERE CHECK!?")
             #TODO: Make sure the file was deleted.
         finally:
-            #self.__FtpSession.retrlines("LIST {}".format(remoteDelFile))
-            #ret = self.__FtpSession.sendcmd("LIST {}".format(remoteDelFile))
-            try: self.__FtpSession.size(remoteDelFile)
+            #self.__FtpSession.retrlines("LIST {}".format(RemoteFile))
+            #ret = self.__FtpSession.sendcmd("LIST {}".format(RemoteFile))
+            try: self.__FtpSession.size(RemoteFile)
             except ftplib.error_perm as e:
                 #Expected behavior
                 pass
@@ -74,21 +71,12 @@ class CmdFtp(CommandBase):
                 print("Delete failed!")
             
 
-    __RE_CmdPut = "(?P<localPutFile>{PATH})\s+(?P<destinationPutFile>{PATH})".format(PATH=_RE_Path)
-    __RE_CmdGet = "(?P<remoteGetFile>{PATH})\s+(?P<destinationGetFile>{PATH})".format(PATH=_RE_Path)
-    __RE_CmdDel = "(?P<remoteDelFile>{PATH})".format(PATH=_RE_Path)
+    __supportedActions = {"put":__ftpPut, "get":__ftpGet, "delete":__ftpDel}
 
-    __ActionType = namedtuple("Action", ("func", "regex"))
-    __supportedActions = OrderedDict([("put",__ActionType(__ftpPut, __RE_CmdPut)), ("get",__ActionType(__ftpGet, __RE_CmdGet)), ("delete",__ActionType(__ftpDel, __RE_CmdDel))])
 
-    def __supportedActionsList(actions):
-        return ["({})".format(action) for action in actions.keys()]
-    def __supportedActionsREList(actions):
-        return ["(?({NUM})(?:{RE}))".format(NUM=index+2, RE=actions[key].regex) for index,key in enumerate(actions)]
-    __RE_Cmd = "\s*(?P<Action>(?:{Actions}))\s+{ActREs}\s*".format(Actions="|".join(__supportedActionsList(__supportedActions)), ActREs="".join(__supportedActionsREList(__supportedActions)))
+    def __ftpExec(self, Command, **kwargs):
+        self.__supportedActions[Command](self, **kwargs)
 
-    def __ftpExec(self, Action, **kwargs):
-        self.__supportedActions[Action].func(self, **kwargs)
 
     def __createDir(self, dirname):
         try:
@@ -105,28 +93,37 @@ class CmdFtp(CommandBase):
             self.__FtpSession.mkd(dirname)
 
 
+    def registerParameters(self):
+        self.addMainParameter("System",_RE_ADDRESS, Help="Address of the target")
+        self.addMainParameter("Username",_RE_USER_PASS, Help="Login username", Optional=True)
+        self.addMainParameter("Password",_RE_USER_PASS, Help="Login password", Optional=True)
+
+        PutCommand = self.createExtendedParametersGroup("put", Help="Put a file on the target system.")
+        PutCommand.addParameter("LocalFile", _RE_PATH, Help="Local file to upload.")
+        PutCommand.addParameter("DestinationFile", _RE_PATH, Help="Destination file.") 
+
+        GetCommand = self.createExtendedParametersGroup("get", Help="Download a file from the target system.")
+        GetCommand.addParameter("RemoteFile", _RE_PATH, Help="The file to download.")
+        GetCommand.addParameter("DestinationFile", _RE_PATH, Help="Local destination.") 
+
+        DeleteCommand = self.createExtendedParametersGroup("delete", Help="Delete a file on the target system.")
+        DeleteCommand.addParameter("RemoteFile", _RE_PATH, Help="File to delete.")
+
+
     def run(self):
         try:
-            System = re.match(self.__RE_System, self.Args["System"]).groupdict()
-        except AttributeError:
-            raise BadSyntaxError(self._Aureliano, "TODO") from None
-
-        try:
-            self.__FtpSession = ftplib.FTP(System["Ip"])
+            self.__FtpSession = ftplib.FTP(self.Args["System"])
         except socket.error as e:
             raise FailedToConnectError(self._Aureliano, "TODO") from None
 
+        # TODO: Read password from command line if only username is provided.
         try:
-            self.__FtpSession.login(user=System["Username"], passwd=System["Password"])
+            self.__FtpSession.login(user=self.Args["Username"], passwd=self.Args["Password"])
         except ftplib.error_perm:
             raise FtpAnonymousOnlyError(self._Aureliano, "TODO") from None
 
-        for cmd in self.Args["Multi"]:
-            try:
-                ActionParams = re.match(self.__RE_Cmd, cmd["Action"]).groupdict()
-            except AttributeError:
-                raise BadSyntaxError(self._Aureliano, cmd["Action"]) from None
-            ActionParams = {key:val for (key, val) in ActionParams.items() if val is not None}
+        for cmd in self.Args["Extended"]:
+            ActionParams = {key:val for (key, val) in cmd.items() if val is not None and key != "FullCommand"}
             self.__ftpExec(**ActionParams)
 
 

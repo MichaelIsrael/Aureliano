@@ -1,28 +1,36 @@
 from Commands import CommandBase
+from Commands.Exceptions import BadSyntaxError
 
-_RE_ACTION = "(ok|error_(syntax|message))"
 
 class CmdTest(CommandBase):
     _BriefHelpStr = "Test and example command"
 
     def registerParameters(self):
-        self.addMainParameter("Name", ".+")
-        self.addExtendedParameter("TestAction", _RE_ACTION)
+        self.addMainParameter("Name", "\S+")
+
+        OkParamGrp = self.createExtendedParametersGroup("ok", "Everything is OK.")
+        Ok2ParamGrp = self.createExtendedParametersGroup("ok2", "Everything is OK with extra arguments.", True)
+
+        ErrorParamGrp = self.createExtendedParametersGroup("error", "Error occuring.")
+        ErrorParamGrp.addParameter("Type", "(syntax|message)")
+
 
     def _say(self, Msg):
         print("Test {Name}: {Msg}".format(Name=self.Args["Name"], Msg=Msg))
 
+
     def run(self):
-        MultiArgs = self.Args.pop("Multi")
-        for cmd in MultiArgs:
-            action = cmd["TestAction"]
+        for cmd in self.Args["Extended"]:
+            action = cmd["Command"]
             if action == "ok":
                 self._say("OK!")
-            elif action == "error_message":
-                self._say("Error!")
-            elif action == "error_syntax":
-                from Commands.Exceptions import BadSyntaxError
-                raise BadSyntaxError(self._Aureliano, "Wrong syntax!")
+            elif action == "ok2":
+                self._say("OK2! ({})".format(cmd["Extra"]))
+            elif action == "error":
+                if cmd["Type"] == "message":
+                    self._say("Error!")
+                elif cmd["Type"] == "syntax":
+                    raise BadSyntaxError(self._Aureliano, "Wrong syntax!")
 
 
 
