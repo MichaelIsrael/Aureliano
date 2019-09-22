@@ -5,4 +5,4 @@ get pub/test_in.txt test_in.txt
 }
 
 #One lint with authentification
-ftp 127.0.0.1 User:Pass put test.txt test.txt
+ftp 127.0.0.1 User Pass put test.txt test.txt

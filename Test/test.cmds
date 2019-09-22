@@ -1,9 +1,12 @@
  
-test MyName{
+test MySingle ok
+
+test MyMulti{
 	#First action to execute
+	ok2 too
 	ok
 	#Second action to execute
-	error_message
+	error message
 #<
 	A few comments
 	ok (A valid but commented action)
