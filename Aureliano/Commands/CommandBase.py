@@ -1,49 +1,15 @@
 from Commands.Exceptions import BadCommandSyntaxError, BadSyntaxError, UnkownCommandError
 from Commands import *
+from Commands.Helper import Helper
 import Commands
 from collections import OrderedDict
 import sys
 import re
 
 
-##################
-# Helper classes #
-##################
-class Helper:
-    def __init__(self, Commando, Help=None):
-        self._info = {}
-        try:
-            self._info["name"] = Commando.__name__[3:]
-        except AttributeError:
-            try:
-                Help, Params = Help
-            except ValueError:
-                Params = ""
-            finally:
-                self._info["name"] = "[{}] {}".format("|".join(Commando), Params).strip()
-                if len(self._info["name"]) >= 20:
-                    self._info["help"] = "\n" + " "*20 + Help
-                else:
-                    self._info["help"] = Help
-        else:
-            try:
-                self._info["help"] = Commando.getBriefHelp(Commando)
-            except AttributeError:
-                self._info["help"] = Help
-
-    def __str__(self):
-        return repr(self)
-
-    def __repr__(self):
-        """
-        if len(self._info["name"]) >= 20:
-            return "{name:}\n{help}".format(**self._info)
-        else:
-        """
-        if True:
-            return "{name: <20}{help}".format(**self._info)
-
-
+################################
+# Parameter generation classes #
+################################
 class ParametersGroup(object):
     def __init__(self, Name, Help, Greedy=False):
         self.Name = Name
@@ -167,13 +133,13 @@ class CommandBase(object):
             self.Args = re.match(MainRegex, arguments).groupdict()
             ExtendedArgs = [self.Args.pop("Extra")]
         except AttributeError:
-                raise BadCommandSyntaxError(self._Aureliano, self.name, arguments) from None
+                raise BadCommandSyntaxError(self, arguments) from None
         except TypeError: ## Multi-line command.
             ## Parse main command
             try:
                 self.Args = re.match(MainRegex, arguments[0]).groupdict()
             except AttributeError:
-                raise BadCommandSyntaxError(self._Aureliano, self.name, arguments[0]) from None
+                raise BadCommandSyntaxError(self, arguments[0]) from None
 
             assert self.Args["Extra"] is None, "Unexpected arguments {} in a multiline call.".format(self.Args["Extra"])
 
@@ -189,7 +155,7 @@ class CommandBase(object):
                     continue
                 break
             else:
-                raise BadCommandSyntaxError(self._Aureliano, self.name, arg) from None
+                raise BadCommandSyntaxError(self, arg) from None
         ## Add multi-line commands.
         self.Args.update({"Extended": ExtendedCommands})
 
@@ -209,13 +175,28 @@ class CommandBase(object):
     @classmethod
     def create(Class, Aureliano, command):
         CmdName, parameters = Class.__dissectCommand(command)
-        cmdClassName = "Cmd"+CmdName.title()
+        cmdClass = Class.getCommand(CmdName)
+        return cmdClass(parameters, Aureliano)
+
+    @classmethod
+    def getCommand(Class, CommandName):
+        """Get the command's class
+
+        Args:
+            CommandName (str): Command.
+
+        Returns:
+            class of the command required.
+
+        Raises:
+            UnkownCommandError: If the command was not found.
+        """
+        ClassName = "Cmd"+CommandName.title()
         for cls in Class.__subclasses__():
-            if cmdClassName == cls.__name__:
-                cmdClass = cls
-                return cmdClass(parameters, Aureliano)
+            if ClassName == cls.__name__:
+                return cls
         else:
-            raise UnkownCommandError(Aureliano, command)
+            raise UnkownCommandError(CommandName)
 
     def run(self):
         raise NotImplementedError("Command '{}' was defined but not properly implemented!".format(self.name))

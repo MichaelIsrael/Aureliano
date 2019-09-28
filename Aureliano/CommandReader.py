@@ -113,12 +113,12 @@ class CommandReader(object):
         # Check if multiline.
         if command.endswith("{"):
             if not self.__InternalAnalysis.final:
-                raise BadSyntaxError(self, "Nested commands are not yet supported!") from None
+                raise BadSyntaxError("Nested commands are not yet supported!") from None
             self.__InternalAnalysis.final = False
             return None
         elif command == "}":
             if self.__InternalAnalysis.final:
-                raise BadSyntaxError(self, "End of unstarted multi-line command!") from None
+                raise BadSyntaxError("End of unstarted multi-line command!") from None
             self.__InternalAnalysis.final = True
             cmd = list(self.__InternalAnalysis.completeCommand)
             self.__InternalAnalysis.completeCommand = []

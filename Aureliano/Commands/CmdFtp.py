@@ -114,13 +114,13 @@ class CmdFtp(CommandBase):
         try:
             self.__FtpSession = ftplib.FTP(self.Args["System"])
         except socket.error as e:
-            raise FailedToConnectError(self._Aureliano, "TODO") from None
+            raise FailedToConnectError("TODO") from None
 
         # TODO: Read password from command line if only username is provided.
         try:
             self.__FtpSession.login(user=self.Args["Username"], passwd=self.Args["Password"])
         except ftplib.error_perm:
-            raise FtpAnonymousOnlyError(self._Aureliano, "TODO") from None
+            raise FtpAnonymousOnlyError("TODO") from None
 
         for cmd in self.Args["Extended"]:
             ActionParams = {key:val for (key, val) in cmd.items() if val is not None and key != "FullCommand"}

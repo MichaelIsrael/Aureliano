@@ -30,7 +30,7 @@ class CmdTest(CommandBase):
                 if cmd["Type"] == "message":
                     self._say("Error!")
                 elif cmd["Type"] == "syntax":
-                    raise BadSyntaxError(self._Aureliano, "Wrong syntax!")
+                    raise BadSyntaxError("Wrong syntax!")
 
 
 

@@ -3,9 +3,9 @@ from Commands.Exceptions import BadCommandSyntaxError, BadSyntaxError
 from ExceptionBase import AurelianoBaseError
 from functools import wraps
 from time import sleep
-from Commands.CommandBase import Helper
 from CommandReader import CommandReader
 from Commands import *
+from Commands.Helper import Helper
 import argparse
 import random
 import types
@@ -62,12 +62,14 @@ class Aureliano:
         else:
             return cmd.run()
 
+    """
     def getHelp(self, command):
         helpList = CommandBase.help()
         try:
             return(helpList[command])
         except:
             return None
+    """
         
 
     def help(self):
@@ -111,8 +113,9 @@ class Aureliano:
             self._say(random.choice(MsgInsults))
 
     def _handle(self, exception):
+        self._insult()
         if self.__discipline["continue"] or self._interactive:
-            print(exception)
+            self._say(exception)
         else:
             raise exception from None
 
@@ -122,7 +125,7 @@ class Aureliano:
                 self._executePersonalCommand(command)
             except TypeError:
                 try:
-                    raise BadCommandSyntaxError(self, command) from None
+                    raise BadCommandSyntaxError(command) from None
                 except BadCommandSyntaxError as e:
                     self._handle(e)
             except AttributeError:
@@ -168,7 +171,7 @@ class Aureliano:
         try:
             sleep(float(time))
         except ValueError:
-            raise BadCommandSyntaxError(self, self.__name__, args) from None
+            raise BadCommandSyntaxError(self.__name__, args) from None
 
     @_DefineCommand(("Set a certain mode.", "MODE"), "Be", "Become")
     def __Cmd3(self, state):
@@ -184,7 +187,7 @@ class Aureliano:
                 self.__discipline[States[knownState][0]] = States[knownState][1]
                 break
         else:
-            raise BadSyntaxError(self, repr(state)+" is not a known state!") from None
+            raise BadSyntaxError(repr(state)+" is not a known state!") from None
 
     @_DefineCommand(("Print help.", "[CMD]"), "Help")
     def __Cmd4(self, Command=None):
