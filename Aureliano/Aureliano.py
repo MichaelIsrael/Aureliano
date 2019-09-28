@@ -4,6 +4,7 @@ from ExceptionBase import AurelianoBaseError
 from functools import wraps
 from time import sleep
 from Commands.CommandBase import Helper
+from CommandReader import CommandReader
 from Commands import *
 import argparse
 import random
@@ -25,8 +26,6 @@ MyAuthor = "Michael Israel"
 ############
 # Messages #
 ############
-MsgInteractWelcome = "At your service, sir!"
-MsgInteractExit = "Goodbye, sir!"
 MsgInsults = ["Are you crazy?", "You must be out of your mind!", "Impossible, sweet cheeks!", "How about we stop messing around and get to work!?", "Don't be ridiculous!", "Think again, Einstein!", "No time for silly jokes, sir!"]
 
 
@@ -35,9 +34,8 @@ MsgInsults = ["Are you crazy?", "You must be out of your mind!", "Impossible, sw
 ############
 class Aureliano:
     def __init__(self):
-        self.__ComandsFilename = None
-        self.__CommandsFileLock = False
-        self.__interacting = False
+        self._running = True
+        self._interactive = False
         self.__discipline = {
             "verbose" : True, #TODO: is this even used anywhere? Should be removed or implemented?
             "continue" : False,
@@ -54,7 +52,9 @@ class Aureliano:
         setattr(self, cmdFuncName, types.FunctionType(origFunc.__code__, origFunc.__globals__, newFunc, origFunc.__defaults__, origFunc.__closure__))
         
     def execute(self, command):
-        #TODO: Accept string or iterable.
+        """
+        Run a command.
+        """
         try:
             cmd = CommandBase.create(self, command)
         except:
@@ -92,7 +92,7 @@ class Aureliano:
         return helpStr
 
     def _whisper(self, *args):
-        if self.__interacting:
+        if self._interactive:
             msg = "Aureliano: " + str(*args)
         else:
             msg = "Aureliano: " + str(*args)
@@ -100,7 +100,7 @@ class Aureliano:
         return msg
 
     def _say(self, *args):
-        if self.__interacting:
+        if self._interactive:
             print(self._whisper(*args))
         else:
             print(self._whisper(*args))
@@ -111,58 +111,27 @@ class Aureliano:
             self._say(random.choice(MsgInsults))
 
     def _handle(self, exception):
-        if self.__discipline["continue"] or self.__interacting:
+        if self.__discipline["continue"] or self._interactive:
             print(exception)
         else:
             raise exception from None
 
     def interact(self, Filename=None):
-        #TODO: Replace the following with an iterator self for both variants
-        self.__readFrom(Filename)
-        try:
-            for command in self.__readCommandsFile():
-                try: self._executePersonalCommand(command)
-                except TypeError:
-                    try:
-                        raise BadCommandSyntaxError(self, command) from None
-                    except BadCommandSyntaxError as e:
-                        self._handle(e)
-                except AttributeError:
-                    try:
-                        returncode = self.execute(command)
-                        if not self.__discipline["continue"] and returncode:
-                            break
-                    except AurelianoBaseError as e:
-                        self._handle(e)
-        except TypeError:
-            self._say(MsgInteractWelcome)
-            self.__interacting = True
-            while self.__interacting:
+        for command in CommandReader(self, Filename):
+            try:
+                self._executePersonalCommand(command)
+            except TypeError:
                 try:
-                    command = self.__getCommand()
-                except KeyboardInterrupt:
-                    self._say("Couldn't you ask in a nicer way!? How about saying 'bye'!?")
-                    self._executePersonalCommand("exit")
-                    return
-
-                try: self._executePersonalCommand(command)
-                except TypeError:
-                    try:
-                        raise BadCommandSyntaxError(self, command) from None
-                    except BadCommandSyntaxError as e:
-                        self._handle(e)
-                except AttributeError:
-                    try:
-                        returncode = self.execute(command)
-                        if not self.__discipline["continue"] and returncode != 0:
-                            break
-                    except AurelianoBaseError as e:
-                        self._handle(e)
-            self._say(MsgInteractExit)
-
-    def __readFrom(self, Filename):
-        assert not self.__CommandsFileLock, "Another commands' file is currently being processed!"
-        self.__ComandsFilename = Filename
+                    raise BadCommandSyntaxError(self, command) from None
+                except BadCommandSyntaxError as e:
+                    self._handle(e)
+            except AttributeError:
+                try:
+                    returncode = self.execute(command)
+                    if not self.__discipline["continue"] and not returncode in [True, None, 0]:
+                        break
+                except AurelianoBaseError as e:
+                    self._handle(e)
 
     def _executePersonalCommand(self, command):
         # Multi-line commands would raise an AttributeError, same as if
@@ -172,74 +141,7 @@ class Aureliano:
         cmdMethod = getattr(self, cmdMethodName)
         return cmdMethod(self, *command[1:])
 
-    class __CInternalAnalysis:
-        final = True
-        completeCommand = []
-        multiComment = False
 
-    __InternalAnalysis = __CInternalAnalysis()
-        
-    def __analyzeCommand(self, command):
-        command = command.strip()
-
-        if self.__InternalAnalysis.multiComment:
-            if command == "#>":
-                self.__InternalAnalysis.multiComment = False
-            return None
-        else:
-            if command == "#<":
-                self.__InternalAnalysis.multiComment = True
-                return None
-
-        command = re.sub("#.*$", "", command)
-
-        if command == "":
-            return None
-
-        self.__InternalAnalysis.completeCommand.append(command)
-
-        # Check if multiline.
-        if command.endswith("{"):
-            if not self.__InternalAnalysis.final:
-                raise BadSyntaxError(self, "Nested commands are not yet supported!") from None
-            self.__InternalAnalysis.final = False
-            return None
-        elif command == "}":
-            if self.__InternalAnalysis.final:
-                raise BadSyntaxError(self, "End of unstarted multi-line command!") from None
-            self.__InternalAnalysis.final = True
-            cmd = list(self.__InternalAnalysis.completeCommand)
-            self.__InternalAnalysis.completeCommand = []
-            return cmd
-        else:
-            if self.__InternalAnalysis.final:
-                self.__InternalAnalysis.completeCommand[:] = []
-                return command
-            else:
-                return None
-
-    def __getCommand(self):
-        command = input("You: ")
-        cmd = self.__analyzeCommand(command)
-        if cmd is None:
-            return self.__getCommand()
-        else:
-            return cmd
-
-    def __readCommandsFile(self):
-        commandsFile = open(self.__ComandsFilename, 'r')
-        self.__CommandsFileLock = True
-        finalCommand = None
-        for command in commandsFile:
-            cmd = self.__analyzeCommand(command)
-            if cmd is None:
-                continue
-            else:
-                yield cmd
-        #TODO: Check if a multi-line command was not correctly ended.
-        commandsFile.close()
-        self.__CommandsFileLock = False
-        self.__ComandsFilename = None
 
     ###################################
     # Decorator for defining commands #
@@ -259,7 +161,7 @@ class Aureliano:
     #################################
     @_DefineCommand("Exit.", "Exit", "Bye", "Ciao")
     def __Cmd1(self):
-        self.__interacting = False
+        self._running = False
 
     @_DefineCommand(("Sleep TIME seconds.", "TIME"), "Wait", "Sleep", "Delay")
     def __Cmd2(self, time):
