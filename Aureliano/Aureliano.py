@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 from Commands.Exceptions import BadCommandSyntaxError, BadSyntaxError
+from Commands.AbstractCommandBase import AbstractCommandBase
 from ExceptionBase import AurelianoBaseError
-from functools import wraps
-from time import sleep
 from CommandReader import CommandReader
-from Commands import CommandBase
 from Commands.Helper import Helper
+from Commands import ExternalCommandBase
+from time import sleep
 import argparse
 import random
-import types
 import sys
 import os
 import re
 
-sys.tracebacklimit = 0
 
 #############
 # Constants #
@@ -36,9 +34,24 @@ MsgInsults = ["Are you crazy?",
               ]
 
 
-############
-# Commands #
-############
+##############################
+# Class for inernal commands #
+##############################
+class InternalCommandBase(AbstractCommandBase):
+    __func = None
+
+    def __init__(self, names, func, Help):
+        self._CmdHelp = Helper(names, Help)
+        self._CmdNames = names
+        self.__func = func
+
+    def __call__(self, *args):
+        self.__func(*args)
+
+
+#############
+# Aureliano #
+#############
 class Aureliano:
     def __init__(self):
         self._running = True
@@ -53,23 +66,16 @@ class Aureliano:
                                   for name in self.__class__.__dict__.keys()
                                   if "_Aureliano__Cmd" in name}
 
-        for _, cmdMethod in self._internalCommands.items():
-            for CmdName in cmdMethod._CmdNames:
-                self.__cloneCommand(CmdName, cmdMethod)
-
-    def __cloneCommand(self, newFunc, origFunc):
-        cmdFuncName = "_Cmd" + newFunc.title()
-        setattr(self, cmdFuncName, types.FunctionType(origFunc.__code__,
-                                                      origFunc.__globals__,
-                                                      newFunc,
-                                                      origFunc.__defaults__,
-                                                      origFunc.__closure__))
+        for _, intCommand in self._internalCommands.items():
+            for CmdName in intCommand._CmdNames:
+                cmdFuncName = "_Cmd" + CmdName.title()
+                setattr(self, cmdFuncName, intCommand)
 
     def execute(self, command):
         """
         Run a command.
         """
-        cmd = CommandBase.create(self, command)
+        cmd = ExternalCommandBase.create(self, command)
         return cmd.run()
 
     def help(self):
@@ -83,13 +89,13 @@ class Aureliano:
         for _, intCmd in self._internalCommands.items():
             helpStr += "\n" + re.sub("^",
                                      "    ",
-                                     str(intCmd._CmdHelp),
+                                     str(Helper(intCmd)),
                                      flags=re.MULTILINE)
         helpStr += "\n"
 
         # Print external commands:
         helpStr += "\n" + "  External commands:"
-        for HelpItem in CommandBase.help():
+        for HelpItem in ExternalCommandBase.help():
             helpStr += "\n" + "    " + str(HelpItem)
 
         return helpStr
@@ -151,12 +157,18 @@ class Aureliano:
     ###################################
     def _DefineCommand(helpStr, *names):
         def command(_Cmd):
-            setattr(_Cmd, "_CmdHelp", Helper(names, helpStr))
-            setattr(_Cmd, "_CmdNames", names)
-            @wraps(_Cmd)
+            IntCmd = InternalCommandBase(names, _Cmd, helpStr)
+
             def commandWrapper(self, *args):
-                return _Cmd(self, *args)
-            return commandWrapper
+                # Note: this is a little bit tricky. self here is Aureliano,
+                #       but when the call is made the instance of
+                #       InternalCommandBase is prepended as usual, so __call__
+                #       of InternalCommandBase receives the current self
+                #       (Aureliano) as part of *args. That is why _Cmd? gets
+                #       the right 'self' and everything works as expected.
+                return IntCmd(self, *args)
+
+            return IntCmd
         return command
 
     #################################
@@ -247,6 +259,9 @@ if __name__ == "__main__":
 
     if args.debug:
         sys.tracebacklimit = 1000
+    else:
+        sys.tracebacklimit = 0
+
     if args.cont:
         TheColonel._executePersonalCommand("be persistent")
 

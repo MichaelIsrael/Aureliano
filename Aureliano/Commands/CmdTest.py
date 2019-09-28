@@ -1,8 +1,8 @@
-from Commands import CommandBase
+from Commands import ExternalCommandBase
 from Commands.Exceptions import BadSyntaxError
 
 
-class CmdTest(CommandBase):
+class CmdTest(ExternalCommandBase):
     _BriefHelpStr = "Test and example command"
 
     def registerParameters(self):

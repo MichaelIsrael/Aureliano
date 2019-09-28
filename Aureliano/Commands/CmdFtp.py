@@ -1,4 +1,4 @@
-from Commands.CommandBase import CommandBase
+from Commands import ExternalCommandBase
 from ExceptionBase import AurelianoBaseError
 import ftplib
 import socket
@@ -31,7 +31,7 @@ _RE_ADDRESS = _RE_IP
 ###############
 # FTP Command #
 ###############
-class CmdFtp(CommandBase):
+class CmdFtp(ExternalCommandBase):
     _BriefHelpStr = "Upload, download and delete files using FTP."
 
     def __ftpPut(self, LocalFile, DestinationFile):

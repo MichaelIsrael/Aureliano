@@ -1,12 +1,12 @@
-from Commands.CommandBase import CommandBase
+from Commands.ExternalCommandBase import ExternalCommandBase
 
 from Commands.CmdFtp import CmdFtp
 from Commands.CmdTelnet import CmdTelnet
-from Commands.CmdTest import CmdTest
+# from Commands.CmdTest import CmdTest
 
 
-__add__ = [CommandBase,
+__add__ = [ExternalCommandBase,
            CmdFtp,
            CmdTelnet,
-           CmdTest,
+           # CmdTest,
            ]
