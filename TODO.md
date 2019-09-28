@@ -9,3 +9,4 @@
 * [ ] Support nesting multi-line comments
 * [x] Refactoring for defining parameters.
 * [ ] Refactoring for BaseCommand --> Use iterator instead of an Args array.
+* [ ] Remove dependency of the exceptions on Aureliano.
