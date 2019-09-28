@@ -135,6 +135,8 @@ class CommandBase(object):
         try:
             self.__createRegexes()
             self.__parseArguments(arguments)
+        except BadCommandSyntaxError:
+            raise
         except:
             raise Exception("Implementation error!")
 
@@ -176,20 +178,20 @@ class CommandBase(object):
             assert self.Args["Extra"] is None, "Unexpected arguments {} in a multiline call.".format(self.Args["Extra"])
 
             ExtendedArgs = arguments[1:]
-        finally:
-            ExtendedCommands = []
-            ## Parse multi-line commands.
-            for arg in ExtendedArgs:
-                for ExtendedRegex in self.Parameters:
-                    try:
-                        ExtendedCommands.append(re.match(ExtendedRegex, arg).groupdict())
-                    except AttributeError:
-                        continue
-                    break
-                else:
-                    raise BadCommandSyntaxError(self._Aureliano, self.name, arg) from None
-            ## Add multi-line commands.
-            self.Args.update({"Extended": ExtendedCommands})
+
+        ExtendedCommands = []
+        ## Parse multi-line commands.
+        for arg in ExtendedArgs:
+            for ExtendedRegex in self.Parameters:
+                try:
+                    ExtendedCommands.append(re.match(ExtendedRegex, arg).groupdict())
+                except AttributeError:
+                    continue
+                break
+            else:
+                raise BadCommandSyntaxError(self._Aureliano, self.name, arg) from None
+        ## Add multi-line commands.
+        self.Args.update({"Extended": ExtendedCommands})
 
 
     @staticmethod
