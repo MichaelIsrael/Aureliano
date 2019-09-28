@@ -1,4 +1,5 @@
 
+
 #############################
 # Base class for exceptions #
 #############################
@@ -11,4 +12,3 @@ class AurelianoBaseError(Exception):
 
     def __str__(self):
         return self._formatError()
-            

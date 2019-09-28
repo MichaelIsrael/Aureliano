@@ -28,7 +28,7 @@ class FileSource(BaseCommandsSource):
     def __init__(self, Aureliano, Filename):
         self.Aureliano = Aureliano
         self.file = open(Filename, 'r')
-        #TODO: Check syntax before executing anything?
+        # TODO: Check syntax before executing anything?
 
     def getNextLine(self):
         while self.Aureliano._running:
@@ -36,7 +36,6 @@ class FileSource(BaseCommandsSource):
             if line == '':
                 return None
             yield line
-
 
     def close(self):
         self.file.close()
@@ -57,7 +56,8 @@ class InteractiveSource(BaseCommandsSource):
                 command = input("You: ")
                 yield command
             except KeyboardInterrupt:
-                self.Aureliano._say("Couldn't you ask in a nicer way!? How about saying 'bye'!?")
+                self.Aureliano._say("Couldn't you ask in a nicer way!? How "
+                                    "about saying 'bye'!?")
                 self.Aureliano._executePersonalCommand("exit")
                 yield None
         else:
@@ -73,7 +73,7 @@ class CommandReader(object):
             self.CmdSource = FileSource(Aureliano, filename)
         else:
             self.CmdSource = InteractiveSource(Aureliano)
-        
+
     def __iter__(self):
         for command in self.CmdSource:
             cmd = self.__analyzeCommand(command)
@@ -83,14 +83,13 @@ class CommandReader(object):
                 yield cmd
         return None
 
-
     class __CInternalAnalysis:
         final = True
         completeCommand = []
         multiComment = False
 
     __InternalAnalysis = __CInternalAnalysis()
-        
+
     def __analyzeCommand(self, command):
         command = command.strip()
 
@@ -113,12 +112,14 @@ class CommandReader(object):
         # Check if multiline.
         if command.endswith("{"):
             if not self.__InternalAnalysis.final:
-                raise BadSyntaxError("Nested commands are not yet supported!") from None
+                raise BadSyntaxError("Nested commands are not yet supported!")\
+                    from None
             self.__InternalAnalysis.final = False
             return None
         elif command == "}":
             if self.__InternalAnalysis.final:
-                raise BadSyntaxError("End of unstarted multi-line command!") from None
+                raise BadSyntaxError("End of unstarted multi-line command!") \
+                    from None
             self.__InternalAnalysis.final = True
             cmd = list(self.__InternalAnalysis.completeCommand)
             self.__InternalAnalysis.completeCommand = []
@@ -129,5 +130,3 @@ class CommandReader(object):
                 return command
             else:
                 return None
-
-

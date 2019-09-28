@@ -1,16 +1,15 @@
 from ExceptionBase import AurelianoBaseError
 from Commands.Helper import Helper
 
+
 ##############
 # Exceptions #
 ##############
 class UnkownCommandError(AurelianoBaseError):
     def _formatError(self):
-        try:
-            formated_command = " ".join(self.args)
-        except:
-            formated_command = " ".join(self.args[0])
-        return "I don't understand what you mean by: '{}'".format(formated_command)
+        formated_command = " ".join(self.args)
+        return "I don't understand what you mean by: '{}'".format(
+            formated_command)
 
 
 class BadSyntaxError(AurelianoBaseError):
@@ -26,10 +25,10 @@ class BadCommandSyntaxError(BadSyntaxError):
         super(BadCommandSyntaxError, self).__init__(*args, **kwargs)
 
     def _formatError(self):
-        ## TODO: Get syntax help!
-        #helpList = CommandBase.help()
+        # TODO: Get syntax help!
+        # helpList = CommandBase.help()
         try:
-            #CmdHelp = helpList[self._cmd]
+            # CmdHelp = helpList[self._cmd]
             CmdHelp = Helper(self._cmd)
         except AttributeError:
             return "Internal Error: Could not retrieve the help information!"
@@ -37,6 +36,7 @@ class BadCommandSyntaxError(BadSyntaxError):
             if CmdHelp is None:
                 CmdHelp = ""
             else:
-                CmdHelp = "\n  " + str(Helper(self._cmd,CmdHelp))
-            return "Bad syntax: {}: '{}'{}".format(self._cmd, self._intCmd, CmdHelp)
-
+                CmdHelp = "\n  " + str(Helper(self._cmd, CmdHelp))
+            return "Bad syntax: {}: '{}'{}".format(self._cmd,
+                                                   self._intCmd,
+                                                   CmdHelp)
