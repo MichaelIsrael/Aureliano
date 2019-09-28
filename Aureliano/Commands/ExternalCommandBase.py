@@ -103,6 +103,12 @@ class ExternalCommandBase(AbstractCommandBase):
         except BadCommandSyntaxError:
             raise
 
+    def getCommandName(self):
+        try:
+            return self.Name
+        except AttributeError:
+            return self.__name__[3:]
+
     def __createRegexes(self):
         self.Parameters = ParametersBuilder(self.name)
 

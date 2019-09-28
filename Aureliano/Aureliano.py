@@ -38,15 +38,20 @@ MsgInsults = ["Are you crazy?",
 # Class for inernal commands #
 ##############################
 class InternalCommandBase(AbstractCommandBase):
-    __func = None
-
-    def __init__(self, names, func, Help):
-        self._CmdHelp = Helper(names, Help)
+    def __init__(self, names, func, Parameters, HelpStr):
         self._CmdNames = names
-        self.__func = func
+        self._func = func
+        self._Help = HelpStr
+        self._Parameters = Parameters
+
+    def getCommandName(self):
+        return "({}) {}".format("|".join(self._CmdNames), self._Parameters)
+
+    def getBriefHelp(self):
+        return self._Help
 
     def __call__(self, *args):
-        self.__func(*args)
+        self._func(*args)
 
 
 #############
@@ -155,9 +160,15 @@ class Aureliano:
     ###################################
     # Decorator for defining commands #
     ###################################
-    def _DefineCommand(helpStr, *names):
+    def _DefineCommand(Help, *names):
         def command(_Cmd):
-            IntCmd = InternalCommandBase(names, _Cmd, helpStr)
+            try:
+                HelpStr, Parameters = Help
+            except ValueError:
+                HelpStr = Help
+                Parameters = None
+
+            IntCmd = InternalCommandBase(names, _Cmd, Parameters, HelpStr)
 
             def commandWrapper(self, *args):
                 # Note: this is a little bit tricky. self here is Aureliano,

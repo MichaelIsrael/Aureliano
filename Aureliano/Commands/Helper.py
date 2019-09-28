@@ -7,37 +7,38 @@ class Helper:
     """A generic class to handle help strings.
 
     Args:
-        Commando (CommandBase): Aureliano command.
-        Help (str or (str, str)): TODO
+        Command (CommandBase): Aureliano command.
     """
-    def __init__(self, Commando, Help=None):
+    def __init__(self, Command):
+        """ Constructor """
+        # Store command data.
         self._info = {}
+
+        # Store command name.
         try:
-            # Try to parse name of command
-            # (TODO: Create a function in CommandBase?)
-            # self._info["name"] = Commando.__name__[3:]
-            self._info["name"] = repr(Commando)
-        except AttributeError:  # Internal commands provide a tuple of names.
-            try:
-                Help, Params = Help
-            except ValueError:
-                Params = ""
-            finally:
-                self._info["name"] = "[{}] {}".format("|".join(Commando),
-                                                      Params).strip()
-                if len(self._info["name"]) >= 20:
-                    self._info["help"] = "\n" + (" " * 20) + Help
-                else:
-                    self._info["help"] = Help
-        else:
-            try:
-                self._info["help"] = Commando.getBriefHelp(Commando)
-            except AttributeError:
-                self._info["help"] = Help
+            # Get name of command from instance.
+            self._info["name"] = Command.getCommandName()
+        except TypeError:
+            # Get name of command from class.
+            self._info["name"] = Command.getCommandName(Command)
+
+        # Store command help.
+        try:
+            # Get help from instance.
+            self._info["name"] = Command.getCommandName()
+            self._info["help"] = Command.getBriefHelp()
+        except TypeError:
+            # Get help from class.
+            self._info["help"] = Command.getBriefHelp(Command)
+
+        # Write help string in a new line if needed.
+        if len(self._info["name"]) >= 20:
+            self._info["help"] = "\n" + (" " * 20) + self._info["help"]
 
     def __str__(self):
+        """ get formated help string. """
         return repr(self)
 
     def __repr__(self):
-        if True:
-            return "{name: <20}{help}".format(**self._info)
+        """ get formated help string. """
+        return "{name: <20}{help}".format(**self._info)
