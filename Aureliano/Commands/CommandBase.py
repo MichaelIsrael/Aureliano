@@ -52,7 +52,7 @@ class ParametersGroup(object):
         self._ready = False
         self._OptionalParameters = False
 
-        self._Regex = "(?P<FullCommand>(?P<Command>{})".format(Name)
+        self._Regex = "(?P<FullCommand>(?P<Command>(?i){})".format(Name)
 
     def addParameter(self, Name, Regex, Help="", Optional=False):
         Suffix = r''
