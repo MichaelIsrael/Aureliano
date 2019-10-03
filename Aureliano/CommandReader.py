@@ -86,21 +86,24 @@ class CommandReader(object):
     class __CInternalAnalysis:
         final = True
         completeCommand = []
-        multiComment = False
+        multiComment = 0
 
     __InternalAnalysis = __CInternalAnalysis()
 
     def __analyzeCommand(self, command):
         command = command.strip()
 
+        if command == "#>":
+            if self.__InternalAnalysis.multiComment:
+                self.__InternalAnalysis.multiComment -= 1
+            else:
+                print("Warning!")
+
+        if command == "#<":
+            self.__InternalAnalysis.multiComment += 1
+
         if self.__InternalAnalysis.multiComment:
-            if command == "#>":
-                self.__InternalAnalysis.multiComment = False
             return None
-        else:
-            if command == "#<":
-                self.__InternalAnalysis.multiComment = True
-                return None
 
         command = re.sub("#.*$", "", command)
 
