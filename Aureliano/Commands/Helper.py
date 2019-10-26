@@ -11,29 +11,12 @@ class Helper:
     """
     def __init__(self, Command):
         """ Constructor """
-        # Store command data.
-        self._info = {}
+        self.Command = Command
 
-        # Store command name.
-        try:
-            # Get name of command from instance.
-            self._info["name"] = Command.getCommandName()
-        except TypeError:
-            # Get name of command from class.
-            self._info["name"] = Command.getCommandName(Command)
-
-        # Store command help.
-        try:
-            # Get help from instance.
-            self._info["name"] = Command.getCommandName()
-            self._info["help"] = Command.getBriefHelp()
-        except TypeError:
-            # Get help from class.
-            self._info["help"] = Command.getBriefHelp(Command)
-
-        # Write help string in a new line if needed.
-        if len(self._info["name"]) >= 20:
-            self._info["help"] = "\n" + (" " * 20) + self._info["help"]
+    def getFullHelp(self):
+        print(self.Command)
+        print(self.Command.getHelp())
+        return self.Command.getCommandName() + self.Command.getHelp()
 
     def __str__(self):
         """ get formated help string. """
@@ -41,4 +24,13 @@ class Helper:
 
     def __repr__(self):
         """ get formated help string. """
-        return "{name: <20}{help}".format(**self._info)
+        # Store command name.
+        name = self.Command.getCommandName()
+
+        # Store command help.
+        description = self.Command.getDescription()
+
+        # Write help string in a new line if needed.
+        if len(name) >= 20:
+            description = "\n" + (" " * 20) + description
+        return "{Name: <20}{Help}".format(Name=name, Help=description)

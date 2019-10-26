@@ -32,7 +32,8 @@ _RE_ADDRESS = _RE_IP
 # FTP Command #
 ###############
 class CmdFtp(ExternalCommandBase):
-    _BriefHelpStr = "Upload, download and delete files using FTP."
+    def getDescription(self):
+        return "Upload, download and delete files using FTP."
 
     def __ftpPut(self, LocalFile, DestinationFile):
         print("FTP --> Puting " + LocalFile + " to " + DestinationFile)
@@ -113,7 +114,9 @@ class CmdFtp(ExternalCommandBase):
                               Help="Login password",
                               Optional=True)
 
-        PutCommand = self.createExtendedParametersGroup("put", Help="Put a file on the target system.")
+        PutCommand = self.createExtendedParametersGroup(
+            "put",
+            Help="Put a file on the target system.")
         PutCommand.addParameter("LocalFile",
                                 _RE_PATH,
                                 Help="Local file to upload.")
@@ -121,7 +124,9 @@ class CmdFtp(ExternalCommandBase):
                                 _RE_PATH,
                                 Help="Destination file.")
 
-        GetCommand = self.createExtendedParametersGroup("get", Help="Download a file from the target system.")
+        GetCommand = self.createExtendedParametersGroup(
+            "get",
+            Help="Download a file from the target system.")
         GetCommand.addParameter("RemoteFile",
                                 _RE_PATH,
                                 Help="The file to download.")
@@ -129,7 +134,9 @@ class CmdFtp(ExternalCommandBase):
                                 _RE_PATH,
                                 Help="Local destination.")
 
-        DeleteCommand = self.createExtendedParametersGroup("delete", Help="Delete a file on the target system.")
+        DeleteCommand = self.createExtendedParametersGroup(
+            "delete",
+            Help="Delete a file on the target system.")
         DeleteCommand.addParameter("RemoteFile",
                                    _RE_PATH,
                                    Help="File to delete.")

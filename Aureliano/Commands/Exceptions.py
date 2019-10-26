@@ -11,10 +11,16 @@ class UnkownCommandError(AurelianoBaseError):
         return "I don't understand what you mean by: '{}'".format(
             formated_command)
 
+    def getNiceName(self):
+        return "Unkown command"
+
 
 class BadSyntaxError(AurelianoBaseError):
     def _formatError(self):
         return "Bad syntax: '{}'".format(" ".join(self.args))
+
+    def getNiceName(self):
+        return "Bad syntax"
 
 
 class BadCommandSyntaxError(BadSyntaxError):
@@ -24,19 +30,16 @@ class BadCommandSyntaxError(BadSyntaxError):
         self._intCmd = " ".join(self._intCmd)
         super(BadCommandSyntaxError, self).__init__(*args, **kwargs)
 
+    def getNiceName(self):
+        return "Bad command syntax"
+
     def _formatError(self):
-        # TODO: Get syntax help!
-        # helpList = CommandBase.help()
-        try:
-            # CmdHelp = helpList[self._cmd]
-            CmdHelp = Helper(self._cmd)
-        except AttributeError:
-            return "Internal Error: Could not retrieve the help information!"
-        else:
-            if CmdHelp is None:
-                CmdHelp = ""
-            else:
-                CmdHelp = "\n  " + str(Helper(self._cmd, CmdHelp))
-            return "Bad syntax: {}: '{}'{}".format(self._cmd,
-                                                   self._intCmd,
-                                                   CmdHelp)
+        # Create command specific Helper instance.
+        CmdHelp = Helper(self._cmd)
+
+        # Get full help text.
+        CmdHelp = "\n" + CmdHelp.getFullHelp()
+
+        return "{}: '{}'{}".format(self._cmd.getCommandName(),
+                                   self._intCmd,
+                                   CmdHelp)

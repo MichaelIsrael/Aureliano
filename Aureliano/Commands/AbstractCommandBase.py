@@ -11,5 +11,9 @@ class AbstractCommandBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def getBriefHelp(self):
+    def getDescription(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def getHelp(self):
         raise NotImplementedError

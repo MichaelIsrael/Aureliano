@@ -5,6 +5,60 @@ from abc import abstractmethod
 import re
 
 
+#######################
+# Internal exceptions #
+#######################
+class InvalidCommandClass(Exception):
+    def __init__(self, klass):
+        self._class = klass
+
+
+class InvalidClassName(InvalidCommandClass):
+    def __str__(self):
+        return "{} is not a valid command class name.".format(
+            self._class.__name__)
+
+
+class NotACommandSubclass(InvalidCommandClass):
+    def __str__(self):
+        return "Class {} is not a subclass of ExternalCommandBase.".format(
+            self._class.__name__)
+
+
+#####################################
+# Parameter help generation classes #
+#####################################
+class ParametersHelp(object):
+    def __init__(self, Name, Help):
+        self.Name = Name
+        self.Help = Help
+        self.Parameters = {}
+
+    def addParameterHelp(self, Name, Help):
+        self.Parameters[Name] = Help
+
+    def getHelp(self):
+        return "TODO: Help for {}.".format(self.Name,
+                                           " and ".join(self.Parameters.keys())
+                                           )
+
+
+class HelpIterator(object):
+    def __init__(self, Parameters):
+        self.Parameters = Parameters
+
+    def __iter__(self):
+        self.idx = -1
+        return self
+
+    def __next__(self):
+        self.idx += 1
+        try:
+            return ParametersHelp(self.Parameters[self.idx]).getHelp()
+        except IndexError:
+            raise StopIteration from None
+
+
 ################################
 # Parameter generation classes #
 ################################
@@ -25,7 +79,7 @@ class ParametersGroup(object):
             self._OptionalParameters = True
         else:
             if Optional is False and self._OptionalParameters:
-                raise NotImplementedError
+                raise NotImplementedError  # TODO: A meaningful exception.
 
         if self._OptionalParameters:
             Spacer = r'\s*'
@@ -40,10 +94,7 @@ class ParametersGroup(object):
     def getRegex(self):
         assert self._ready, "Internal error: ParametersGroup '{}' was not \
                              finalized!".format(self.Name)
-        try:
-            return self._Regex
-        except AttributeError:
-            return None
+        return self._Regex
 
     def finalize(self):
         if self._Greedy:
@@ -84,33 +135,48 @@ class ParametersBuilder(object):
     def __iter__(self):
         return iter([str(grp) for grp in self.ExtendedGroups])
 
+    def getHelp(self):
+        AllParameters = [self.MainGroup].extend(self.ExtendedGroups)
+        return iter(HelpIterator(AllParameters))
+
 
 ###########################
 # Base class for commands #
 ###########################
 class ExternalCommandBase(AbstractCommandBase):
-    _BriefHelpStr = "Please implement!"
+    def __init__(self, arguments=None):
+        self.EnsureValidity(self.__class__)
 
-    def __init__(self, arguments, Aureliano):
-        assert self.__class__.__name__[:3] == "Cmd", "Invalid inheritance! \
-                                                      Class name should start \
-                                                      with Cmd"
-        self._Aureliano = Aureliano
-        self.name = self.__class__.__name__[3:]
-        try:
-            self.__createRegexes()
+        self.Name = self.__class__.__name__[3:]
+
+        self.__createRegexes()
+
+        # TODO: Separate the arguments from the initialization?
+        if arguments:
             self.__parseArguments(arguments)
-        except BadCommandSyntaxError:
-            raise
+
+    @staticmethod
+    def EnsureValidity(cls):
+        if not issubclass(cls, ExternalCommandBase):
+            raise NotACommandSubclass(cls)
+
+        prefix = cls.__name__[:3]
+        name = cls.__name__[3:]
+        if prefix != "Cmd" or name != name.title():
+            raise InvalidClassName(cls)
+
+    def getDescription(self):
+        """Get the description of the command.
+        Returns:
+          A str describing the command.
+        """
+        raise NotImplementedError("Please describe your command!")
 
     def getCommandName(self):
-        try:
-            return self.Name
-        except AttributeError:
-            return self.__name__[3:]
+        return self.Name
 
     def __createRegexes(self):
-        self.Parameters = ParametersBuilder(self.name)
+        self.Parameters = ParametersBuilder(self.Name)
 
         self.addMainParameter = self.Parameters.MainGroup.addParameter
         self.createExtendedParametersGroup = self.Parameters.newExtendedGroup
@@ -122,7 +188,7 @@ class ExternalCommandBase(AbstractCommandBase):
     @abstractmethod
     def registerParameters(self):
         raise NotImplementedError("Command '{}' was defined but not properly \
-                                   implemented!".format(self.name))
+                                   implemented!".format(self.Name))
 
     def __parseArguments(self, arguments):
         # get Regexes
@@ -166,6 +232,8 @@ class ExternalCommandBase(AbstractCommandBase):
 
     @staticmethod
     def __dissectCommand(FullCommand):
+        # TODO: This should be moved to CommandReader!!!
+        print(FullCommand)
         try:
             command = re.split(r'\s+', FullCommand, 1)[0]
             arguments = FullCommand
@@ -174,16 +242,17 @@ class ExternalCommandBase(AbstractCommandBase):
             arguments = [FullCommand[0][:-1]]
             arguments.extend(FullCommand[1:-1])
         finally:
+            print(command, arguments)
             return command, arguments
 
     @classmethod
-    def create(Class, Aureliano, command):
-        CmdName, parameters = Class.__dissectCommand(command)
-        cmdClass = Class.getCommand(CmdName)
-        return cmdClass(parameters, Aureliano)
+    def create(cls, command):
+        CmdName, parameters = cls.__dissectCommand(command)
+        cmdClass = cls.getCommand(CmdName)
+        return cmdClass(parameters)
 
     @classmethod
-    def getCommand(Class, CommandName):
+    def getCommand(cls, CommandName):
         """Get the command's class
 
         Args:
@@ -195,34 +264,41 @@ class ExternalCommandBase(AbstractCommandBase):
         Raises:
             UnkownCommandError: If the command was not found.
         """
-        ClassName = "Cmd" + CommandName.title()
-        for cls in Class.__subclasses__():
-            if ClassName == cls.__name__:
-                return cls
+        # Construct command name according to the predefined scheme.
+        ClassName = "Cmd" + str(CommandName).title()
+        try:
+            # Get the class if it exists.
+            CmdClass = globals()[ClassName]
+        except KeyError:
+            raise UnkownCommandError(CommandName) from None
         else:
-            raise UnkownCommandError(CommandName)
+            # Make sure it is a subclass of the current class.
+            if not issubclass(CmdClass, cls):
+                raise UnkownCommandError(CommandName) from None
+            else:
+                return CmdClass
 
     @abstractmethod
     def run(self):
         raise NotImplementedError("Command '{}' was defined but not properly \
-                                   implemented!".format(self.name))
-
-    def getBriefHelp(self):
-        return self._BriefHelpStr
-
-    def _getHelp(self):
-        helpList = []
-        # Store help in the list if a valid command.
-        if self.__name__[:3] == "Cmd":
-            helpList.append(Helper(self))
-        # Support getting help of children commands.
-        if len(self.__subclasses__()) > 0:
-            helpList.extend(self.help())
-        return helpList
+                                   implemented!".format(self.Name))
 
     @classmethod
-    def help(Class):
+    def help(cls):
         allHelp = []
-        for cmd in Class.__subclasses__():
-            allHelp.extend(cmd._getHelp(cmd))
+        for cmd in cls.__subclasses__():
+            try:
+                cls.EnsureValidity(cmd)
+            except InvalidClassName:
+                pass
+            else:
+                allHelp.append(Helper(cmd()))
+
+            if len(cmd.__subclasses__()) > 0:
+                allHelp.extend(cmd.help())
         return allHelp
+
+    def getHelp(self):
+        for Help in self.Parameters.getHelp():
+            print(Help)
+        raise NotImplementedError("Full help for {}".format(self.Name))

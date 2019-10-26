@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from Commands.Exceptions import BadCommandSyntaxError, BadSyntaxError
+from Commands.Exceptions import BadCommandSyntaxError
 from Commands.AbstractCommandBase import AbstractCommandBase
 from ExceptionBase import AurelianoBaseError
 from CommandReader import CommandReader
@@ -8,6 +8,7 @@ from Commands import ExternalCommandBase
 from time import sleep
 import argparse
 import random
+import copy
 import sys
 import os
 import re
@@ -38,20 +39,33 @@ MsgInsults = ["Are you crazy?",
 # Class for inernal commands #
 ##############################
 class InternalCommandBase(AbstractCommandBase):
-    def __init__(self, names, func, Parameters, HelpStr):
+    def __init__(self, names, func, Parameters, Description):
+        self._InternalName = None  # Added by Aureliano in __init__.
         self._CmdNames = names
         self._func = func
-        self._Help = HelpStr
+        self._Description = Description
         self._Parameters = Parameters
 
     def getCommandName(self):
-        return "({}) {}".format("|".join(self._CmdNames), self._Parameters)
+        if self._InternalName:
+            return self._InternalName
+        else:
+            return self._CmdNames[0]
 
-    def getBriefHelp(self):
-        return self._Help
+    def getHelp(self):
+        if self._Parameters:
+            Syntax = "({}) {}".format("|".join(self._CmdNames),
+                                      self._Parameters)
+        else:
+            Syntax = "({})".format("|".join(self._CmdNames))
+
+        return Syntax + r"\n    " + self._func.__doc__
+
+    def getDescription(self):
+        return self._Description
 
     def __call__(self, *args):
-        self._func(*args)
+        self._func(self, *args)
 
 
 #############
@@ -74,14 +88,9 @@ class Aureliano:
         for _, intCommand in self._internalCommands.items():
             for CmdName in intCommand._CmdNames:
                 cmdFuncName = "_Cmd" + CmdName.title()
-                setattr(self, cmdFuncName, intCommand)
-
-    def execute(self, command):
-        """
-        Run a command.
-        """
-        cmd = ExternalCommandBase.create(self, command)
-        return cmd.run()
+                NewCmd = copy.copy(intCommand)
+                setattr(NewCmd, "_InternalName", CmdName)
+                setattr(self, cmdFuncName, NewCmd)
 
     def help(self):
         print("{name} {version} at your command!".format(name=MyName,
@@ -121,41 +130,87 @@ class Aureliano:
             # raise NotImplementedError # TODO
 
     def _insult(self):
+        """Print insult if default impolite mode is on."""
         if not self.__discipline["polite"]:
             self._say(random.choice(MsgInsults))
 
     def _handle(self, exception):
+        """Let Aureliano handle the exception his way."""
+        # This is an error, so insult.
         self._insult()
+
+        # If the application should keep going, just let Aureliano say the
+        # error.
         if self.__discipline["continue"] or self._interactive:
-            self._say(exception)
+            self._say(exception.getNiceName() + ": " + str(exception))
         else:
+            # Otherwise, raise the exception and end the application.
             raise exception from None
 
-    def interact(self, Filename=None):
-        for command in CommandReader(self, Filename):
+    def execute(self, command):
+        """
+        Run a command.
+        """
+        try:  # First treat as an internal command.
+            # Multi-line commands would raise an AttributeError, same as if
+            # the command does not exist.
+            CmdParameters = command.split()
+            CmdName = CmdParameters.pop(0)
+            # get internal command.
+            IntCommand = self._getInternalCommand(CmdName)
+        except AttributeError:  # Try as an external command.
             try:
-                self._executePersonalCommand(command)
-            except TypeError:
+                # Execute as external command.
+                cmd = ExternalCommandBase.create(self, command)
+                returncode = cmd.run()
+                # Check for execution errors.
+                if (not self.__discipline["continue"]
+                        and returncode not in [True, None, 0]):
+                    self._running = False
+            except AurelianoBaseError as e:
+                # Handle Aureliano's exceptions nicely.
+                self._handle(e)
+            except Exception as e:
+                # Reraise other exceptions but suppress the personal
+                # command's AttributeError.
+                raise e from None
+        else:
+            # Execute the internal command.
+            try:
+                # Execute as internal command.
+                IntCommand(self, *CmdParameters)
+            except TypeError:  # TypeErrors usually occur with syntax problems.
                 try:
-                    raise BadCommandSyntaxError(command) from None
-                except BadCommandSyntaxError as e:
-                    self._handle(e)
-            except AttributeError:
-                try:
-                    returncode = self.execute(command)
-                    if (not self.__discipline["continue"]
-                            and returncode not in [True, None, 0]):
-                        break
+                    # Override exception in a more meaningful way.
+                    raise BadCommandSyntaxError(IntCommand,
+                                                " ".join(CmdParameters)) \
+                        from None
                 except AurelianoBaseError as e:
+                    # Now cache the new exception and handle it nicely.
                     self._handle(e)
+            except AurelianoBaseError as e:
+                # Now cache the new exception and handle it nicely.
+                self._handle(e)
 
-    def _executePersonalCommand(self, command):
-        # Multi-line commands would raise an AttributeError, same as if
-        # the command does not exist.
-        command = command.split()
-        cmdMethodName = "_Cmd" + command[0].title()
-        cmdMethod = getattr(self, cmdMethodName)
-        return cmdMethod(self, *command[1:])
+    def interact(self, Filename=None):
+        # Read commands.
+        for command in CommandReader(self, Filename):
+            self.execute(command)
+
+    def _getInternalCommand(self, command):
+        """Get instance of internal command.
+
+        Args:
+          command (str): command name.
+
+        Returns:
+          A callable instance of the internal command.
+
+        Raises:
+          AttributeError: If the command does not exist.
+        """
+        cmdMethodName = "_Cmd" + command.title()
+        return getattr(self, cmdMethodName)
 
     ###################################
     # Decorator for defining commands #
@@ -163,41 +218,38 @@ class Aureliano:
     def _DefineCommand(Help, *names):
         def command(_Cmd):
             try:
-                HelpStr, Parameters = Help
+                Description, Parameters = Help
             except ValueError:
-                HelpStr = Help
+                Description = Help
                 Parameters = None
 
-            IntCmd = InternalCommandBase(names, _Cmd, Parameters, HelpStr)
+            return InternalCommandBase(names, _Cmd, Parameters, Description)
 
-            def commandWrapper(self, *args):
-                # Note: this is a little bit tricky. self here is Aureliano,
-                #       but when the call is made the instance of
-                #       InternalCommandBase is prepended as usual, so __call__
-                #       of InternalCommandBase receives the current self
-                #       (Aureliano) as part of *args. That is why _Cmd? gets
-                #       the right 'self' and everything works as expected.
-                return IntCmd(self, *args)
-
-            return IntCmd
         return command
 
     #################################
     # Aureliano's internal commands #
     #################################
-    @_DefineCommand("Exit.", "Exit", "Bye", "Ciao")
-    def __Cmd1(self):
-        self._running = False
+    @_DefineCommand("Exit.", "Exit", "Bye", "Ciao", "End", "Stop")
+    def __Cmd1(CmdSelf, Aureliano):
+        """Exit Aureliano."""
+        Aureliano._running = False
 
-    @_DefineCommand(("Sleep TIME seconds.", "TIME"), "Wait", "Sleep", "Delay")
-    def __Cmd2(self, time):
+    @_DefineCommand(("Sleep for a specific time.", "TIME"),
+                    "Sleep", "Wait", "Delay")
+    def __Cmd2(CmdSelf, Aureliano, time):
+        """
+        Sleep for a certain amount (TIME) of seconds.
+        Arguments:
+            TIME    Number of seconds to sleep (float).
+        """
         try:
             sleep(float(time))
         except ValueError:
-            raise BadCommandSyntaxError(self.__name__, args) from None
+            raise BadCommandSyntaxError(CmdSelf, time) from None
 
     @_DefineCommand(("Set a certain mode.", "MODE"), "Be", "Become")
-    def __Cmd3(self, state):
+    def __Cmd3(CmdSelf, Aureliano, state):
         States = {("quiet", "silent"): ("verbose", False),
                   ("verbose", "talkative"): ("verbose", True),
                   ("polite"): ("polite", True),
@@ -207,18 +259,42 @@ class Aureliano:
 
         for knownState in States.keys():
             if state in knownState:
-                self.__discipline[States[knownState][0]] = \
+                Aureliano.__discipline[States[knownState][0]] = \
                     States[knownState][1]
                 break
         else:
-            raise BadSyntaxError(repr(state) + " is not a known state!") \
-                from None
+            raise BadCommandSyntaxError(CmdSelf, state) from None
 
     @_DefineCommand(("Print help.", "[CMD]"), "Help")
-    def __Cmd4(self, Command=None):
+    def __Cmd4(CmdSelf, Aureliano, Command=None):
+        """
+        Show help.
+        If a valid command name is given as an argument to 'help', its full
+        specfic help is given.
+        """
         if Command:
-            raise NotImplementedError("Command specific help.")
-        self.help()
+            try:
+                CmdClass = Aureliano._getInternalCommand(Command)
+            except AttributeError:
+                CmdClass = ExternalCommandBase.getCommand(Command)
+
+            helper = Helper(CmdClass)
+            print(helper.getFullHelp())
+        else:
+            Aureliano.help()
+
+    @_DefineCommand(("Set debug mode.", "MODE"), "debug")
+    def __Cmd5(CmdSelf, Aureliano, Mode):
+        """
+        Set a certain debug mode (show full stack trace of an exception).
+        Arguments:
+          MODE  either on or off.
+        """
+        Modes = {"on": 1000, "off": 0}
+
+        Mode = Mode.lower()
+
+        sys.tracebacklimit = Modes[Mode]
 
 
 if __name__ == "__main__":
@@ -269,18 +345,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.debug:
-        sys.tracebacklimit = 1000
+        TheColonel.execute("debug on")
     else:
-        sys.tracebacklimit = 0
+        TheColonel.execute("debug off")
 
     if args.cont:
-        TheColonel._executePersonalCommand("be persistent")
+        TheColonel.execute("be persistent")
 
     if args.polite:
-        TheColonel._executePersonalCommand("be polite")
+        TheColonel.execute("be polite")
 
     if args.verbose:
-        TheColonel._executePersonalCommand("be verbose")
+        TheColonel.execute("be verbose")
 
     if args.run:
         TheColonel.execute(" ".join(args.run))

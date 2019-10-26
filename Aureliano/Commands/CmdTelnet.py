@@ -1,39 +1,52 @@
 from Commands import ExternalCommandBase
-from collections import OrderedDict
 import telnetlib
 import getpass
 
 
-_RE_IP_UNIT = r"([1-9]?[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
-_RE_IP = r"\b{0}\.{0}\.{0}\.{0}\b".format(_RE_IP_UNIT)
-_RE_USERNAME = r"[^:]+"
-_RE_PASSWORD = r"[^:]*"
-_RE_System = r"(?P<Ip>{IP_RE})(?:\:(?P<Username>{USER_RE})(?:\:(?P<Password>{PASS_RE}))?)?".format(IP_RE=_RE_IP, USER_RE=_RE_USERNAME, PASS_RE=_RE_PASSWORD)
+_RE_USER_PASS = r"\S+"  # TODO: Check official rules for usernames.
+_RE_IP_UNIT = r"\b([1-9]?[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\b"
+_RE_IP = r"{0}\.{0}\.{0}\.{0}".format(_RE_IP_UNIT)
+# _RE_URL = "" # TODO
+# _RE_ADDRESS = r'({}|{})'.format(_RE_IP, _RE_URL)
+_RE_ADDRESS = _RE_IP
 
 
 class CmdTelnet(ExternalCommandBase):
-    _BriefHelpStr = "Telnet to a system and execute one or several commands."
+    def getDescription(self):
+        return "Telnet to a system and execute one or several commands."
 
-    SingleParametersRegex = OrderedDict([("System", r"{Ip}(?:\:{User}(?:\:{Pass})?)?".format(Ip=_RE_IP, User=_RE_USERNAME, Pass=_RE_PASSWORD))])
-    MultiParametersRegex = OrderedDict([("Cmd", r".*")])  # TODO
+    def registerParameters(self):
+        self.addMainParameter("System",
+                              _RE_IP,
+                              Help="Address of the target")
+
+        self.addMainParameter("Username",
+                              _RE_USER_PASS,
+                              Help="Login username",
+                              Optional=True)
+
+        self.addMainParameter("Password",
+                              _RE_USER_PASS,
+                              Help="Login password",
+                              Optional=True)
+
+        """
+        Command = self.createExtendedParametersGroup(
+            "Command",
+            Help="Command to be executed on the target system.")
+        """
 
     def run(self):
-        try:
-            System = re.match(self._RE_System,
-                              self.Args["System"]).groupdict()
-        except AttributeError:
-            raise BadSyntaxError("TODO") from None
-
-        password = System["Password"]
+        password = self.Args["Password"]
         if password is None:
             password = getpass.getpass()
 
-        _TNSession = telnetlib.Telnet(System["Ip"])
+        _TNSession = telnetlib.Telnet(self.Args["System"])
 
         _TNSession.read_until(b"login: ")
         _TNSession.read_until(b"login: ")
 
-        _TNSession.write(System["Username"].encode('ascii') + b"\n")
+        _TNSession.write(self.Args["Username"].encode('ascii') + b"\n")
 
         if password:
             _TNSession.read_until(b"Password: ")
