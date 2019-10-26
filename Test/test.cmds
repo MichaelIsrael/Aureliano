@@ -11,5 +11,7 @@ test MyMulti{
 	A few comments
 	ok (A valid but commented action)
 #>
+#>
+	error syntax
 }
 
